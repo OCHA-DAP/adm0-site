@@ -1,0 +1,45 @@
+---
+import "../styles/brand.css";
+import "../styles/site-tokens.css";
+import FontFaces from "$lib/components/FontFaces.astro";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{title}</title>
+    <FontFaces />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    color: var(--cd-grey--900);
+    font-family: var(--cd-font--roboto, Roboto, sans-serif);
+  }
+  button,
+  input {
+    font-family: inherit;
+  }
+</style>

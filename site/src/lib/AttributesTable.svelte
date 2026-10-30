@@ -1,0 +1,230 @@
+<script lang="ts">
+  import {
+    DIFF_TYPES,
+    FACETS,
+    GROUPS,
+    NONE,
+    SOURCES,
+    groupsInScope,
+    majority,
+    matches,
+    sourcesFor,
+    TIE,
+    value,
+    type AttributeRow,
+    type DiffType,
+    type Facet,
+    type Lens,
+  } from "$lib/attributes";
+
+  let { tilesBase }: { tilesBase: string } = $props();
+
+  const DEFAULT: Lens = { group: "", diff: "any", pair: "", status: "", region: "", sovereign: "", query: "" };
+
+  let rows = $state.raw<AttributeRow[]>([]);
+  let failed = $state(false);
+  let lens = $state<Lens>({ ...DEFAULT });
+
+  $effect(() => {
+    fetch(`${tilesBase}/attributes.json`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((data: AttributeRow[]) => (rows = data))
+      .catch(() => (failed = true));
+  });
+
+  const shown = $derived(rows.filter((row) => matches(row, lens)));
+  const groups = $derived(groupsInScope(lens));
+  const pairs = Object.keys(SOURCES).filter((s) => s !== "gaul");
+  const facets = Object.keys(FACETS) as Facet[];
+
+  // Rows each option would keep, with every other lens left as it is.
+  function count<K extends keyof Lens>(key: K, option: Lens[K]) {
+    const trial = { ...lens, [key]: option };
+    return rows.filter((row) => matches(row, trial)).length;
+  }
+
+  const facetOptions = $derived(
+    Object.fromEntries(
+      facets.map((f) => [f, [...new Set(rows.map((r) => FACETS[f].get(r) || NONE))].sort()]),
+    ) as Record<Facet, string[]>,
+  );
+
+  function cellClass(row: AttributeRow, group: (typeof GROUPS)[number], source: string) {
+    const v = value(row, group.key, source);
+    const inPair = !lens.pair || source === "gaul" || source === lens.pair;
+    let diff = false;
+    if (v && inPair && (lens.pair || group.compare)) {
+      const top = majority(row, group, sourcesFor(group, lens));
+      diff = top !== null && (!!lens.pair || top === TIE || v !== top);
+    }
+    return { empty: !v, diff, dim: !inPair };
+  }
+</script>
+
+<div class="table-view">
+  <div class="controls">
+    <input type="search" placeholder="Search code or name" bind:value={lens.query} />
+    <label>
+      Attribute
+      <select bind:value={lens.group}>
+        <option value="">All ({count("group", "")})</option>
+        {#each GROUPS as g (g.key)}<option value={g.key}>{g.label} ({count("group", g.key)})</option>{/each}
+      </select>
+    </label>
+    <label>
+      Differences
+      <select bind:value={lens.diff}>
+        {#each Object.entries(DIFF_TYPES) as [key, label] (key)}
+          <option value={key}>{label} ({count("diff", key as DiffType)})</option>
+        {/each}
+      </select>
+    </label>
+    <label>
+      Compare
+      <select bind:value={lens.pair}>
+        <option value="">All sources ({count("pair", "")})</option>
+        {#each pairs as p (p)}<option value={p}>GAUL vs {SOURCES[p]} ({count("pair", p)})</option>{/each}
+      </select>
+    </label>
+    {#each facets as f (f)}
+      <label>
+        {FACETS[f].label}
+        <select bind:value={lens[f]}>
+          <option value="">Any</option>
+          {#each facetOptions[f] as option (option)}
+            {@const n = count(f, option)}
+            {#if n > 0 || lens[f] === option}<option value={option}>{option} ({n})</option>{/if}
+          {/each}
+        </select>
+      </label>
+    {/each}
+    <button type="button" onclick={() => (lens = { ...DEFAULT })}>Reset</button>
+    <span class="count">{shown.length} of {rows.length} codes</span>
+  </div>
+  {#if failed}
+    <p>Could not load attributes.json.</p>
+  {:else}
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="2" class="code">ISO3</th>
+            {#each groups as group (group.key)}
+              <th colspan={group.sources.length} class="first">{group.label}</th>
+            {/each}
+          </tr>
+          <tr>
+            {#each groups as group (group.key)}
+              {#each group.sources as source, i (source)}
+                <th class:first={i === 0}>{SOURCES[source]}</th>
+              {/each}
+            {/each}
+          </tr>
+        </thead>
+        <tbody>
+          {#each shown as row (row.iso3)}
+            <tr>
+              <th class="code">{row.iso3}</th>
+              {#each groups as group (group.key)}
+                {#each group.sources as source, i (source)}
+                  {@const c = cellClass(row, group, source)}
+                  <td class:first={i === 0} class:empty={c.empty} class:diff={c.diff} class:dim={c.dim}>
+                    {value(row, group.key, source)}
+                  </td>
+                {/each}
+              {/each}
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
+</div>
+
+<style>
+  .table-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    font-size: 0.8125rem;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 0.5rem 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--cd-grey--400);
+  }
+  .controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    color: var(--cd-grey--700);
+    font-size: 0.75rem;
+  }
+  .controls select,
+  .controls input,
+  .controls button {
+    padding: 0.3rem 0.4rem;
+    font-size: 0.8125rem;
+    max-width: 14rem;
+  }
+  .controls input[type="search"] {
+    width: 14rem;
+  }
+  .count {
+    color: var(--cd-grey--700);
+    margin-left: auto;
+  }
+  .scroll {
+    flex: 1;
+    overflow: auto;
+  }
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  th,
+  td {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.25rem 0.5rem;
+    border-bottom: 1px solid var(--cd-grey--300);
+    min-width: 8rem;
+    max-width: 16rem;
+  }
+  thead th {
+    position: sticky;
+    background: var(--cd-white, #fff);
+    font-weight: 600;
+    z-index: 1;
+  }
+  thead tr:first-child th {
+    top: 0;
+  }
+  thead tr:nth-child(2) th {
+    top: 1.6rem;
+    color: var(--cd-grey--700);
+    font-weight: 400;
+  }
+  .first {
+    border-left: 2px solid var(--cd-grey--400);
+  }
+  .code {
+    position: sticky;
+    left: 0;
+    background: var(--cd-white, #fff);
+    min-width: 4rem;
+    z-index: 2;
+  }
+  .empty {
+    background: var(--cd-grey--200, #f2f2f2);
+  }
+  .diff {
+    background: #fde9dc;
+  }
+  .dim {
+    opacity: 0.35;
+  }
+</style>
