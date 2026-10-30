@@ -109,7 +109,6 @@
 
 {#if !tilesBase}
   <form class="gate" onsubmit={submit}>
-    <h1>ADM0 Sources</h1>
     <label>
       Password
       <!-- svelte-ignore a11y_autofocus -->
@@ -188,11 +187,6 @@
   .error {
     color: var(--cd-red--aa);
     margin: 0;
-  }
-  h1 {
-    font-family: var(--cd-font--roboto-slab);
-    font-size: 1.375rem;
-    margin: 0 0 0.5rem;
   }
   .app {
     display: flex;
