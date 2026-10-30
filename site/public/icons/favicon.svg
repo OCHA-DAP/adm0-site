@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-22 -2 120 120" fill="none" stroke="#0077b8" stroke-width="7" stroke-linejoin="miter" stroke-linecap="butt">
+  <title>COD</title>
+  <polyline points="71,15 49,2.5 3,29 49,56 71,43.5" />
+  <polyline points="26,42.4 3,57.5 49,84.5 71,72" />
+  <polyline points="26,70.9 3,86 49,113 71,100.5" />
+  <line x1="72.5" y1="1" x2="72.5" y2="115" />
+</svg>
